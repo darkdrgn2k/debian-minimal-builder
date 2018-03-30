@@ -51,6 +51,16 @@ variable correctly.
 
 Files that will be taken from the CONFIGDIRS:
 
+authorized_keys
+    This is a directory containing ssh public key files.  All files found will
+    be copied into the built image (in the ~root/authorized_keys directory)
+    before the customise phase scripts are run (Any files with duplicate names
+    will only contain the last file found on the CONFIGDIRS path).
+    Note that the public keys from the ssh_agent of the user creating the build
+    will be automatically added as well.
+    This directory can then be used by a customise phase script to create
+    a real authorized keys file, or serve as a reference while using the built
+    ramdisk system.
 debian.$(CONFIG_DEBIAN).multistrap
     This is the main multistrap config file.  If more than one of these files
     exists in the CONFIGDIRS then only the last defined one will be used.
@@ -79,11 +89,13 @@ root and load any configuration found.  This script will not load any kernel
 modules, so unless the block driver and filesystem have been statically
 compiled, it will not find the filesystem.
 
-These configuration files are simply tar.gz archives and are extracted in
-alphabetical order to /etc of the ramdisk, so files in an archive towards the
-end of the list will overwrite those from an earlier archive in case of a
-filename conflict, and systemd will only see the final (highest priority)
-configurations.
+These configuration files are simply tar.gz archives or sh scripts. First,
+archives are extracted, in alphabetical order to /etc of the ramdisk, so files
+in an archive towards the end of the list will overwrite those from an earlier
+archive in case of a filename conflict. After all archives are extracted, scripts
+are executed in alphabetical order. These steps occur before systemd starts so
+systemd will only see the final (highest priority) configurations and after
+effects of the scripts are applied.
 
 For example:
 
@@ -92,6 +104,7 @@ For example:
             11-tomesh-wlan-hostap-tplink-tl-wn722n.tar.gz
             50-node-config-save.tar.gz
             90-user-custom-configs.tar.gz
+            bootstrap.sh
 
 This allows local communities to customize nodes by distributing archives
 of systemd.network configuration files, or any files that are to be read from
@@ -113,10 +126,30 @@ the Debian keyring package and allow the verification:
 
     sudo apt-get install debian-archive-keyring
 
-Note:  Ubuntu 14.04 is shipping a broken version of multistrap (version
-2.2.0), and will fail with compile errors.  The fix for this appears to
-be to edit the line in /usr/sbin/multistrap that has error (line 989 in
-v2.2.0) and remove any occurance to "$forceyes".
+Note:  Ubuntu 14.04 is shipping a broken version of multistrap, which
+will fail with an error message like:
+
+    Global symbol "$forceyes" requires explicit package name at /usr/sbin/multistrap line 989."
+
+The error is present in version 2.2.0ubuntu1 and fixed in 2.2.0ubuntu2.
+A workaround for this is to manually edit the line:
+
+    sudo sed -i '989s/$forceyes//' /usr/sbin/multistrap
+
+Applying the following patch will also fix the problem:
+
+--- 1/usr/sbin/multistrap	2014-02-22 15:27:42.000000000 +0800
++++ 2/usr/sbin/multistrap	2014-05-13 13:32:36.000000000 +0800
+@@ -986,7 +986,7 @@
+ 	}
+ 	# reinstall set
+ 	foreach my $reinst (sort @reinstall) {
+-		system ("$str $env chroot $dir apt-get --reinstall -y $forceyes install $reinst");
++		system ("$str $env chroot $dir apt-get --reinstall -y install $reinst");
+ 	}
+ 	&run_native_hooks_end(sort @{$hooks{'N'}}) if (defined $hooks{'N'});
+ 	return $retval;
+
 
 TODO
 ----
@@ -124,10 +157,12 @@ TODO
 A quick list of things that probably need doing:
 (sorted vaguely by importance)
 
-* Ensure ssh keys are not saved in image and are regenerated if needed
-* Complete the config load and config save scripts
+* Ensure ssh host keys are not saved in image and are regenerated if needed
 * Add some extra randomness into image
 * Load any extra randomness found on boot media
+* Document the dependancy checking and its implications for deleted, renamed
+  or new files
+* Move some of these TODO items into the mesh-orange project
 * Check all the available 802.11s flags and use the appropropriate ones
 * use a known prefix for tunnel names to allow stable iptables rules and
   coexistance with other tunnel systems

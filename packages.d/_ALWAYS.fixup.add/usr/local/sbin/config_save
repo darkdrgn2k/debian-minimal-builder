@@ -9,30 +9,48 @@ try_partition() {
     retval=1
 
     # Mount partition as read-write
-    mount /dev/$1 /mnt
+    mount "/dev/$1" /mnt
+    S=$?
+
+    if [ $S -ne 0 ]; then
+        echo "Error: mount /dev/$1 to /mnt failed"
+        return $S
+    fi
 
     # Find conf.d in root of partition and save current configurations in /etc
     if [ -d "/mnt/$CONFDIR" ]; then
-        echo Saving configurations to /dev/$1: "/mnt/$CONFDIR/50-node-config-save.tar.gz"
+        echo "Saving configurations to /dev/$1: /mnt/$CONFDIR/50-node-config-save.tar.gz"
         tar --create --gzip -f "/mnt/$CONFDIR/50-node-config-save.tar.gz" -C /etc .
+        S=$?
+
+        if [ $S -ne 0 ]; then
+            echo "Error: create /mnt/$CONFDIR/50-node-config-save.tar.gz from /etc to /dev/$1 failed"
+            return $S
+        fi
 
         # Set function return value to successful
-        echo Configurations saved to /dev/$1: "/mnt/$CONFDIR/50-node-config-save.tar.gz"
+        echo "Configurations saved to /dev/$1: /mnt/$CONFDIR/50-node-config-save.tar.gz"
         retval=0
     fi
 
     # Unmount partition
     umount /mnt
+    S=$?
+
+    if [ $S -ne 0 ]; then
+        echo "Error: umount /dev/$1 from /mnt failed"
+        return $S
+    fi
 
     return $retval
 }
 
-cat /proc/partitions | while read major minor size name; do
+while read -r major minor size name; do
     # Check each partition matching sd*[0-9] (e.g. sda1) or mmcblk*p* (e.g. mmcblk0p1)
     case $name in
         vd*[0-9]|sd*[0-9]|mmcblk*p*)
-            echo Checking for configuration directory on $name
-            try_partition $name $major $minor
+            echo "Checking for configuration directory on $name"
+            try_partition "$name" "$major" "$minor"
             S=$?
 
             # Save only to the first partition found with conf.d
@@ -41,4 +59,6 @@ cat /proc/partitions | while read major minor size name; do
             fi
             ;;
     esac
-done
+
+    echo "$size" >/dev/null # make size look used to shellcheck
+done </proc/partitions

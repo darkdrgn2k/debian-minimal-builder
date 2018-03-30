@@ -5,7 +5,11 @@
 # We simply iterate through a directory of shell fragments
 
 for i in /init.d/*.sh; do
-    . $i
+    if [ -x "$i" ]; then
+        echo "/init: starting $i"
+        # shellcheck disable=SC1090
+        . "$i"
+    fi
 done
 
 # Failsafe: If something has gone wrong, avoid a kernel panic
