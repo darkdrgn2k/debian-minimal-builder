@@ -60,7 +60,7 @@ fi
 
 # set link rssi threshold
 if [ -n "$conf_mesh_rssi_threshold" ]; then
-    iw dev "$INT" set mesh_param mesh_rssi_threshold==$conf_mesh_forwarding
+    iw dev "$INT" set mesh_param mesh_rssi_threshold=$conf_mesh_forwarding
 fi
 
 exit 0
