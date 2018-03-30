@@ -50,17 +50,18 @@ iw dev "$INT" mesh join "$conf_ssid" $join_param
 # I noted that it occasionally did not join
 # - perhaps some earlier command was processing asynchronously?
 sleep 2
-iw dev "$INT" mesh join "$conf_ssid"
+iw dev "$INT" mesh join "$conf_ssid" $join_param
+
 
 # disable 80211s forwarding
 # shellcheck disable=SC2154
 if [ -n "$conf_mesh_forwarding" ]; then
-    iw dev "$INT" set mesh_param mesh_fwding=$conf_mesh_forwarding
+    iw dev "$INT" set mesh_param mesh_fwding="$conf_mesh_forwarding"
 fi
 
 # set link rssi threshold
 if [ -n "$conf_mesh_rssi_threshold" ]; then
-    iw dev "$INT" set mesh_param mesh_rssi_threshold=$conf_mesh_forwarding
+    iw dev "$INT" set mesh_param mesh_rssi_threshold="$conf_mesh_forwarding"
 fi
 
 exit 0
